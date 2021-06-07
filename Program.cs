@@ -10,7 +10,7 @@ namespace BancoDelCaribe
     {
         public struct Client
         {
-            public Client(int code, string name, string numberAccount, double balance)
+            public Client(int code, string name, int numberAccount, double balance)
             {
                 Code = code;
                 Name = name;
@@ -20,7 +20,7 @@ namespace BancoDelCaribe
 
             public int Code;
             public string Name;
-            public string NumberAccount;
+            public int NumberAccount;
             public double Balance;            
         }
 
@@ -56,9 +56,25 @@ namespace BancoDelCaribe
                 Transactions = new List<Transaction>();
             }
 
-            public void AddClient()
+            public void addClient()
             {
+                int code;
+                string name;
+                int numberAccount;
 
+                Console.Clear();
+                Console.Write("Ingrese nombre completo del cliente: ");
+                name = Console.ReadLine();
+
+                if (!string.IsNullOrEmpty(findClient(name)))
+                {
+                    Console.Write($"El cliente: {name} existe registrado en el sistema");
+                }
+            }
+
+            public string findClient(string name)
+            {
+                return Clients.FirstOrDefault(t => t.Name.Equals(name)).Name;
             }
 
             public List<Client> Clients;
