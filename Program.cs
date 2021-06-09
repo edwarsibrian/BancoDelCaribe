@@ -39,13 +39,13 @@ namespace BancoDelCaribe
             public int CodeClient { get; set; }
             public TransactionType TType { get; set; }
             public double Amount { get; set; }
-            public DateTime Date { get; set; }
+            public DateTime Date { get; set; }            
+        }
 
-            public enum TransactionType
-            {
-                Withdrawal = 0,
-                Deposit = 1
-            }
+        public enum TransactionType
+        {
+            Withdrawal = 0,
+            Deposit = 1
         }
 
         public struct CoreCaribeBank
@@ -54,12 +54,11 @@ namespace BancoDelCaribe
             {
                 Clients = new List<Client>();
                 Transactions = new List<Transaction>();
+                Tool = new ToolMenuAndMessages();
             }
 
             public void addClient()
             {
-                var tool = new ToolMenuAndMessages();
-
                 int code;
                 int accountNumber;
                 
@@ -69,11 +68,11 @@ namespace BancoDelCaribe
                 Console.Write("Ingrese nombre completo del cliente: ");
                 name = Console.ReadLine();
 
-                if (!string.IsNullOrEmpty(findClient(name)))
+                if (!string.IsNullOrEmpty(findClientByName(name)))
                 {
-                    Console.WriteLine("El cliente: [{name}] existe registrado en el sistema");
-                    tool.operationCanceled();
-                    
+                    Console.WriteLine($"El cliente: [{name}] existe registrado en el sistema");
+                    Tool.operationCanceled();
+                    return;
                 }
 
                 //generate code
@@ -85,17 +84,97 @@ namespace BancoDelCaribe
                 var client = new Client(code, name, accountNumber, 0);
 
                 Clients.Add(client);
-                tool.savedData();
+                Tool.savedData();
             }
 
-            public string findClient(string name)
+            public void addTrasaction()
             {
-                //if(Clients == null)
-                //{
-                //    return string.Empty;
-                //}
+                int code;
+                int codeClient;
+                int transactionType;
 
+                double amount;
+
+                bool validation;
+
+                Console.Clear();
+                Console.Write("Ingrese código del cliente: ");
+                if(!int.TryParse(Console.ReadLine(), out codeClient))
+                {
+                    Tool.integerValidation();
+                    Tool.operationCanceled();
+                    return;
+                }
+
+                var client = getClientByCode(codeClient);
+
+                if (client.Name == null)
+                {
+                    Tool.clientNotFounded();
+                    Tool.operationCanceled();
+                    return;
+                }
+
+                Console.Write("Tipo de transacción 0-Retiro / 1-Depósito: ");
+                if(!int.TryParse(Console.ReadLine(), out transactionType))
+                {
+                    Tool.integerValidation();
+                    Tool.operationCanceled();
+                    return;
+                }
+
+                if(transactionType != 0 && transactionType != 1)
+                {
+                    Tool.invalidOption();
+                    Tool.operationCanceled();
+                    return;
+                }
+
+                Console.Write("Ingrese cantidad a {0}: ", (TransactionType)transactionType == TransactionType.Withdrawal ? "retirar" : "depositar");
+                if (!double.TryParse(Console.ReadLine(), out amount))
+                {
+                    Console.WriteLine("Valor no válido.");
+                    Tool.operationCanceled();
+                    return;
+                }
+
+                if ((TransactionType)transactionType == TransactionType.Withdrawal)
+                {
+                    if (client.Balance < amount)
+                    {
+                        Console.WriteLine("Fondos insuficientes.");
+                        Tool.operationCanceled();
+                        return;
+                    }
+                }
+                code = codeGenerator(true);
+
+                var transaction = new Transaction(code, codeClient, (TransactionType)transactionType, amount, DateTime.Now);
+
+                Transactions.Add(transaction);
+                updateBalanceOfClient(codeClient, amount, (TransactionType)transactionType);
+                Tool.savedData();
+            }
+
+            public void updateBalanceOfClient(int clientCode, double amount, TransactionType tType)
+            {
+                int index = Clients.FindIndex(t => t.Code == clientCode);
+
+                var client = Clients.Where(t => t.Code == clientCode)
+                    .Select(t => { _ = tType == TransactionType.Deposit ? t.Balance += amount : t.Balance -= amount; return t; }).ToList();
+
+                Clients.RemoveAt(index);
+                Clients.AddRange(client);
+            }
+
+            public string findClientByName(string name)
+            {
                 return Clients.FirstOrDefault(t => t.Name.Equals(name)).Name;
+            }
+
+            public Client getClientByCode(int code)
+            {
+                return Clients.FirstOrDefault(t => t.Code == code);
             }
 
             private int accountNumberGenerator()
@@ -110,30 +189,48 @@ namespace BancoDelCaribe
                 return accountNumber + 1;
             }
 
-            private int codeGenerator()
+            private int codeGenerator(bool transaction = false)
             {
+                int code;
+
+                if (transaction)
+                {
+                    if (Transactions.Count == 0)
+                    {
+                        return 1;
+                    }
+
+                    code = Transactions.Max(t => t.Code);
+                    return code + 1;
+                }
+
                 if (Clients.Count == 0)
                 {
                     return 1;
                 }
 
-                int code = Clients.Max(t => t.Code);
-
+                code = Clients.Max(t => t.Code);
                 return code + 1;
             }
 
             public List<Client> Clients;
             public List<Transaction> Transactions;
 
+            private ToolMenuAndMessages Tool;
+
             
         }
 
         struct ToolMenuAndMessages
         {
+            private const string ContinueWithAnyKey = "Presione cualquier tecla para continuar.";
             private const string Line = "===========================================================";
             private const string Greeting = "Bienvenido al sistema Banco Del Caribe";
             private const string OperationCanceled = "Operación cancelada.";
             private const string SavedData = "Datos guardados.";
+            private const string InvalidOption = "Ha ingresado una opción no válida.";
+            private const string IntegerValidation = "Error de captura. Sólo se permiten valores enteros.";
+            private const string ClientNotFounded = "El cliente no fue encontrado.";
             private const string Options = @"
 1) Agregar Cliente
 2) Agregar Transacción
@@ -157,44 +254,74 @@ Seleccione una opción: ";
 
             public void operationCanceled()
             {
-                Console.WriteLine(OperationCanceled);
+                Console.WriteLine($"{OperationCanceled} \n{ContinueWithAnyKey}");
+                Console.ReadKey();
                 Console.Clear();
-                printMenuHead();
             }
 
             public void savedData()
             {
-                Console.WriteLine(SavedData);
+                Console.WriteLine($"{SavedData} \n{ContinueWithAnyKey}");
+                Console.ReadKey();
                 Console.Clear();
+            }
+
+            public void invalidOption()
+            {
+                Console.WriteLine($"{InvalidOption} \n{ContinueWithAnyKey}");
+                Console.ReadKey();
+                Console.Clear();
+            }
+
+            public void integerValidation()
+            {
+                Console.WriteLine($"{IntegerValidation}");
+                //Console.ReadKey();
+                //Console.Clear();
+            }
+
+            public void clientNotFounded()
+            {
+                Console.WriteLine(ClientNotFounded);
             }
         }
 
 
         static void Main(string[] args)
         {
-            var menuHead = new ToolMenuAndMessages();
+            var tool = new ToolMenuAndMessages();
             var core = new CoreCaribeBank();
 
             core.Initializer();
 
             int option = 0;
 
+            bool endProgram = false;
+
             do
             {
-                menuHead.printMenuHead();
+                tool.printMenuHead();
 
-                option = Convert.ToInt32(Console.ReadLine());
-
-                switch (option)
+                if (!int.TryParse(Console.ReadLine(), out option))
                 {
-                    case 1:
-                        core.addClient();
-                        break;
+                    tool.integerValidation();
                 }
-                
-                Console.ReadKey();
-
-            } while (true);
+                else
+                {
+                    switch (option)
+                    {
+                        case 1:
+                            core.addClient();
+                            break;
+                        case 2:
+                            core.addTrasaction();
+                            break;
+                        default:
+                            tool.invalidOption();
+                            break;
+                    }
+                }                
+            } while (!endProgram);
         }
     }
 }
