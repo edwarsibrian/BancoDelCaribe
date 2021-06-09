@@ -66,7 +66,7 @@ namespace BancoDelCaribe
 
                 Console.Clear();
                 Console.Write("Ingrese nombre completo del cliente: ");
-                name = Console.ReadLine();
+                name = Console.ReadLine().ToUpper();
 
                 if (!string.IsNullOrEmpty(findClientByName(name)))
                 {
@@ -84,6 +84,15 @@ namespace BancoDelCaribe
                 var client = new Client(code, name, accountNumber, 0);
 
                 Clients.Add(client);
+                Console.WriteLine(@"
+Resumen operación
+====================================
+
+Código cliente:     {0}
+Nombre de cliente:  {1}
+Número de cuenta:   {2}
+Balance:           ${3}",
+client.Code, client.Name, client.AccountNumber, client.Balance);
                 Tool.savedData();
             }
 
@@ -153,6 +162,16 @@ namespace BancoDelCaribe
 
                 Transactions.Add(transaction);
                 updateBalanceOfClient(codeClient, amount, (TransactionType)transactionType);
+                Console.WriteLine(@"
+Resumen Transacción
+=====================================
+
+Código:             {0}
+Código de Cliente:  {1}
+Tipo de transacción:{2}
+Monto:             ${3}
+Fecha:              {4}", 
+transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.Deposit ? "Depósito" : "Retiro", transaction.Amount, transaction.Date);
                 Tool.savedData();
             }
 
