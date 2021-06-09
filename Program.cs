@@ -10,17 +10,17 @@ namespace BancoDelCaribe
     {
         public struct Client
         {
-            public Client(int code, string name, int numberAccount, double balance)
+            public Client(int code, string name, int accountNumber, double balance)
             {
                 Code = code;
                 Name = name;
-                NumberAccount = numberAccount;
+                AccountNumber = accountNumber;
                 Balance = balance;
             }
 
             public int Code;
             public string Name;
-            public int NumberAccount;
+            public int AccountNumber;
             public double Balance;            
         }
 
@@ -58,9 +58,12 @@ namespace BancoDelCaribe
 
             public void addClient()
             {
+                var tool = new ToolMenuAndMessages();
+
                 int code;
-                string name;
-                int numberAccount;
+                int accountNumber;
+                
+                string name;               
 
                 Console.Clear();
                 Console.Write("Ingrese nombre completo del cliente: ");
@@ -68,13 +71,55 @@ namespace BancoDelCaribe
 
                 if (!string.IsNullOrEmpty(findClient(name)))
                 {
-                    Console.Write($"El cliente: {name} existe registrado en el sistema");
+                    Console.WriteLine("El cliente: [{name}] existe registrado en el sistema");
+                    tool.operationCanceled();
+                    
                 }
+
+                //generate code
+                code = codeGenerator();
+
+                //generate number account
+                accountNumber = accountNumberGenerator();
+
+                var client = new Client(code, name, accountNumber, 0);
+
+                Clients.Add(client);
+                tool.savedData();
             }
 
             public string findClient(string name)
             {
+                //if(Clients == null)
+                //{
+                //    return string.Empty;
+                //}
+
                 return Clients.FirstOrDefault(t => t.Name.Equals(name)).Name;
+            }
+
+            private int accountNumberGenerator()
+            {
+                if (Clients.Count == 0)
+                {
+                    return 100;
+                }
+
+                int accountNumber = Clients.Max(t => t.AccountNumber);
+
+                return accountNumber + 1;
+            }
+
+            private int codeGenerator()
+            {
+                if (Clients.Count == 0)
+                {
+                    return 1;
+                }
+
+                int code = Clients.Max(t => t.Code);
+
+                return code + 1;
             }
 
             public List<Client> Clients;
@@ -83,10 +128,12 @@ namespace BancoDelCaribe
             
         }
 
-        struct ToolMenu
+        struct ToolMenuAndMessages
         {
             private const string Line = "===========================================================";
             private const string Greeting = "Bienvenido al sistema Banco Del Caribe";
+            private const string OperationCanceled = "Operación cancelada.";
+            private const string SavedData = "Datos guardados.";
             private const string Options = @"
 1) Agregar Cliente
 2) Agregar Transacción
@@ -95,7 +142,8 @@ namespace BancoDelCaribe
 5) Mostrar lista de clientes con depósitos
 6) Mostrar lista de clientes con retiros
 7) Mostrar toda la lista de clientes ordenada por número de cuenta
-8) Salir del programa";
+8) Salir del programa
+Seleccione una opción: ";
 
 
 
@@ -104,18 +152,46 @@ namespace BancoDelCaribe
                 Console.WriteLine(Line);
                 Console.WriteLine(Greeting);
                 Console.WriteLine(Line);
-                Console.WriteLine(Options);
+                Console.Write(Options);
+            }
+
+            public void operationCanceled()
+            {
+                Console.WriteLine(OperationCanceled);
+                Console.Clear();
+                printMenuHead();
+            }
+
+            public void savedData()
+            {
+                Console.WriteLine(SavedData);
+                Console.Clear();
             }
         }
 
 
         static void Main(string[] args)
         {
-            var menuHead = new ToolMenu();
+            var menuHead = new ToolMenuAndMessages();
+            var core = new CoreCaribeBank();
+
+            core.Initializer();
+
+            int option = 0;
 
             do
             {
                 menuHead.printMenuHead();
+
+                option = Convert.ToInt32(Console.ReadLine());
+
+                switch (option)
+                {
+                    case 1:
+                        core.addClient();
+                        break;
+                }
+                
                 Console.ReadKey();
 
             } while (true);
