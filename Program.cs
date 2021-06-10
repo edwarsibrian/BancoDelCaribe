@@ -239,6 +239,22 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                 }
             }
 
+            public void PrintAllClients()
+            {
+                var clientsOrdered = Clients.OrderBy(t => t.AccountNumber).ToList();
+
+                Console.Clear();
+                Console.WriteLine($"{"CÓDIGO",-6}   {"NOMBRE",-30}  {"No. CUENTA",-8}  {"BALANCE"}");
+                Console.WriteLine("-----------------------------------------------------------------------------------");
+                foreach(var client in clientsOrdered)
+                {
+                    Console.WriteLine($"{client.Code,-6}    {client.Name,-30}   {client.AccountNumber,-8}   ${client.Balance}");
+                }
+                               
+                Console.WriteLine("\nFin de registro.");
+                Tool.continueWithAnyKey();
+            }
+
             private Client? GetClientAndValidateClientCode()
             {
                 int codeClient;
@@ -281,12 +297,12 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                 Clients.RemoveAt(index);
             }
 
-            public int countClientsEquals(string name)
+            private int countClientsEquals(string name)
             {
                 return Clients.Where(t => t.Name.Equals(name)).ToList().Count();
             }
 
-            public Client getClientByCode(int code)
+            private Client getClientByCode(int code)
             {
                 return Clients.FirstOrDefault(t => t.Code == code);
             }
@@ -402,6 +418,13 @@ Seleccione una opción: ";
                 Console.WriteLine(NameNull);
             }
 
+            public void continueWithAnyKey()
+            {
+                Console.WriteLine(ContinueWithAnyKey);
+                Console.ReadKey();
+                Console.Clear();
+            }
+
             public void ClientResume(int code, string name, int accountNumber, double balance, bool update)
             {
                 Console.WriteLine(@"
@@ -450,6 +473,9 @@ Resumen operación
                             break;
                         case 4:
                             core.updateAndDeleteClient(false);
+                            break;
+                        case 7:
+                            core.PrintAllClients();
                             break;
                         case 8:
                             endProgram = true;
