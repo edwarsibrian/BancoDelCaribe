@@ -68,7 +68,14 @@ namespace BancoDelCaribe
                 Console.Write("Ingrese nombre completo del cliente: ");
                 name = Console.ReadLine().ToUpper();
 
-                if (!string.IsNullOrEmpty(findClientByName(name)))
+                if (string.IsNullOrEmpty(name))
+                {
+                    Tool.nameNull();
+                    Tool.operationCanceled();
+                    return;
+                }
+
+                if (countClientsEquals(name) > 0)
                 {
                     Console.WriteLine($"El cliente: [{name}] existe registrado en el sistema");
                     Tool.operationCanceled();
@@ -84,22 +91,14 @@ namespace BancoDelCaribe
                 var client = new Client(code, name, accountNumber, 0);
 
                 Clients.Add(client);
-                Console.WriteLine(@"
-Resumen operación
-====================================
-
-Código cliente:     {0}
-Nombre de cliente:  {1}
-Número de cuenta:   {2}
-Balance:           ${3}",
-client.Code, client.Name, client.AccountNumber, client.Balance);
+                Tool.ClientResume(client.Code, client.Name, client.AccountNumber, client.Balance, false);
                 Tool.savedData();
             }
 
             public void addTrasaction()
             {
                 int code;
-                int codeClient;
+                //int codeClient;
                 int transactionType;
 
                 double amount;
@@ -107,23 +106,10 @@ client.Code, client.Name, client.AccountNumber, client.Balance);
                 bool validation;
 
                 Console.Clear();
-                Console.Write("Ingrese código del cliente: ");
-                if(!int.TryParse(Console.ReadLine(), out codeClient))
-                {
-                    Tool.integerValidation();
-                    Tool.operationCanceled();
-                    return;
-                }
 
-                var client = getClientByCode(codeClient);
-
-                if (client.Name == null)
-                {
-                    Tool.clientNotFounded();
-                    Tool.operationCanceled();
-                    return;
-                }
-
+                var client = GetClientAndValidateClientCode();
+                if (client == null) { return; }
+                
                 Console.Write("Tipo de transacción 0-Retiro / 1-Depósito: ");
                 if(!int.TryParse(Console.ReadLine(), out transactionType))
                 {
@@ -149,7 +135,7 @@ client.Code, client.Name, client.AccountNumber, client.Balance);
 
                 if ((TransactionType)transactionType == TransactionType.Withdrawal)
                 {
-                    if (client.Balance < amount)
+                    if (client.Value.Balance < amount)
                     {
                         Console.WriteLine("Fondos insuficientes.");
                         Tool.operationCanceled();
@@ -158,10 +144,10 @@ client.Code, client.Name, client.AccountNumber, client.Balance);
                 }
                 code = codeGenerator(true);
 
-                var transaction = new Transaction(code, codeClient, (TransactionType)transactionType, amount, DateTime.Now);
+                var transaction = new Transaction(code, client.Value.Code, (TransactionType)transactionType, amount, DateTime.Now);
 
                 Transactions.Add(transaction);
-                updateBalanceOfClient(codeClient, amount, (TransactionType)transactionType);
+                updateBalanceOfClient(client.Value.Code, amount, (TransactionType)transactionType);
                 Console.WriteLine(@"
 Resumen Transacción
 =====================================
@@ -175,7 +161,109 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                 Tool.savedData();
             }
 
-            public void updateBalanceOfClient(int clientCode, double amount, TransactionType tType)
+            public void updateAndDeleteClient(bool update = true)
+            {
+                Console.Clear();
+
+                var client = GetClientAndValidateClientCode();
+                if (!client.HasValue) { return; }
+
+                Tool.ClientResume(client.Value.Code, client.Value.Name, client.Value.AccountNumber, client.Value.Balance, update);
+                Console.WriteLine("------------------------------------");
+
+                if (update)
+                {
+                    Console.WriteLine("(*) valores que se pueden modificar.");
+                }
+                                
+                Console.Write("Desea {0} el cliente [s/n]: ", update ? "actualizar" : "eliminar");
+                string answer = Console.ReadLine();
+
+                if (answer != "s" && answer != "n")
+                {
+                    Tool.invalidOption();
+                    return;
+                }
+
+                if (answer == "n")
+                {
+                    Tool.operationCanceled();
+                    return;
+                }
+
+                if (update)
+                {
+                    var clientUpdt = new Client(client.Value.Code, client.Value.Name, client.Value.AccountNumber, client.Value.Balance);
+
+                    Console.Write("Ingrese nombre completo del cliente: ");
+                    clientUpdt.Name = Console.ReadLine().ToUpper();
+
+                    if (string.IsNullOrEmpty(clientUpdt.Name))
+                    {
+                        Tool.nameNull();
+                        Tool.operationCanceled();
+                        return;
+                    }
+
+                    deleteClient(clientUpdt.Code);
+
+                    if (countClientsEquals(clientUpdt.Name) > 0)
+                    {
+                        Console.WriteLine($"Existe otro cliente: [{clientUpdt.Name}] registrado en el sistema");
+                        Clients.Add(clientUpdt);
+                        Tool.operationCanceled();
+                        return;
+                    }
+
+                    double balance;
+
+                    Console.Write("Ingrese nuevo balance: $");
+
+                    if(!double.TryParse(Console.ReadLine(), out balance))
+                    {
+                        Console.WriteLine("Valor no válido.");
+                        Tool.operationCanceled();
+                        return;
+                    }
+
+                    Clients.Add(clientUpdt);
+                    Tool.ClientResume(clientUpdt.Code, clientUpdt.Name, clientUpdt.AccountNumber, clientUpdt.Balance, update);
+                    Tool.savedData();
+                }
+                else
+                {
+                    deleteClient(client.Value.Code);
+                    Console.WriteLine("El registro a sido eliminado.");
+                    Console.ReadKey();
+                    Console.Clear();
+                }
+            }
+
+            private Client? GetClientAndValidateClientCode()
+            {
+                int codeClient;
+
+                Console.Write("Ingrese código del cliente: ");
+                if (!int.TryParse(Console.ReadLine(), out codeClient))
+                {
+                    Tool.integerValidation();
+                    Tool.operationCanceled();
+                    return null;
+                }
+
+                var client = getClientByCode(codeClient);
+
+                if (client.Name == null)
+                {
+                    Tool.clientNotFounded();
+                    Tool.operationCanceled();
+                    return null;
+                }
+
+                return client;
+            }
+
+            private void updateBalanceOfClient(int clientCode, double amount, TransactionType tType)
             {
                 int index = Clients.FindIndex(t => t.Code == clientCode);
 
@@ -186,9 +274,16 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                 Clients.AddRange(client);
             }
 
-            public string findClientByName(string name)
+            private void deleteClient(int clientCode)
             {
-                return Clients.FirstOrDefault(t => t.Name.Equals(name)).Name;
+                int index = Clients.FindIndex(t => t.Code == clientCode);
+
+                Clients.RemoveAt(index);
+            }
+
+            public int countClientsEquals(string name)
+            {
+                return Clients.Where(t => t.Name.Equals(name)).ToList().Count();
             }
 
             public Client getClientByCode(int code)
@@ -235,9 +330,7 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
             public List<Client> Clients;
             public List<Transaction> Transactions;
 
-            private ToolMenuAndMessages Tool;
-
-            
+            private ToolMenuAndMessages Tool;            
         }
 
         struct ToolMenuAndMessages
@@ -250,6 +343,7 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
             private const string InvalidOption = "Ha ingresado una opción no válida.";
             private const string IntegerValidation = "Error de captura. Sólo se permiten valores enteros.";
             private const string ClientNotFounded = "El cliente no fue encontrado.";
+            private const string NameNull = "Debe ingresar un nombre.";
             private const string Options = @"
 1) Agregar Cliente
 2) Agregar Transacción
@@ -261,8 +355,7 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
 8) Salir del programa
 Seleccione una opción: ";
 
-
-
+            
             public void printMenuHead()
             {
                 Console.WriteLine(Line);
@@ -303,6 +396,23 @@ Seleccione una opción: ";
             {
                 Console.WriteLine(ClientNotFounded);
             }
+
+            public void nameNull()
+            {
+                Console.WriteLine(NameNull);
+            }
+
+            public void ClientResume(int code, string name, int accountNumber, double balance, bool update)
+            {
+                Console.WriteLine(@"
+Resumen operación
+==========================================================
+
+    Código cliente:     {0}
+{4} Nombre de cliente:  {1}
+    Número de cuenta:   {2}
+{4} Balance:           ${3}", code, name, accountNumber, balance, update ? "(*)" : "   ");
+            }
         }
 
 
@@ -334,6 +444,15 @@ Seleccione una opción: ";
                             break;
                         case 2:
                             core.addTrasaction();
+                            break;
+                        case 3:
+                            core.updateAndDeleteClient();
+                            break;
+                        case 4:
+                            core.updateAndDeleteClient(false);
+                            break;
+                        case 8:
+                            endProgram = true;
                             break;
                         default:
                             tool.invalidOption();
