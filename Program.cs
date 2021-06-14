@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BancoDelCaribe
 {
@@ -125,7 +123,7 @@ namespace BancoDelCaribe
                     return;
                 }
 
-                Console.Write("Ingrese cantidad a {0}: ", (TransactionType)transactionType == TransactionType.Withdrawal ? "retirar" : "depositar");
+                Console.Write("Ingrese cantidad a {0}: $", (TransactionType)transactionType == TransactionType.Withdrawal ? "retirar" : "depositar");
                 if (!double.TryParse(Console.ReadLine(), out amount))
                 {
                     Console.WriteLine("Valor no válido.");
@@ -210,7 +208,7 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                     if (countClientsEquals(clientUpdt.Name) > 0)
                     {
                         Console.WriteLine($"Existe otro cliente: [{clientUpdt.Name}] registrado en el sistema");
-                        Clients.Add(clientUpdt);
+                        Clients.Add(client.Value);
                         Tool.operationCanceled();
                         return;
                     }
@@ -222,6 +220,7 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                     if(!double.TryParse(Console.ReadLine(), out balance))
                     {
                         Console.WriteLine("Valor no válido.");
+                        Clients.Add(client.Value);
                         Tool.operationCanceled();
                         return;
                     }
@@ -239,7 +238,7 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                 }
             }
 
-            public void PrintAllClients()
+            public void printAllClients()
             {
                 var clientsOrdered = Clients.OrderBy(t => t.AccountNumber).ToList();
 
@@ -251,6 +250,44 @@ transaction.Code, transaction.CodeClient, transaction.TType == TransactionType.D
                     Console.WriteLine($"{client.Code,-6}    {client.Name,-30}   {client.AccountNumber,-8}   ${client.Balance}");
                 }
                                
+                Console.WriteLine("\nFin de registro.");
+                Tool.continueWithAnyKey();
+            }
+
+            public void printClientsWithTransactions(TransactionType type)
+            {
+                
+
+                var clientsWithDeposit = Transactions.Where(t => t.TType == type).GroupBy(g => g.CodeClient)
+                    .Select(s => new
+                    {
+                        CodeClient = s.Key,
+                        Average = s.Sum(x => x.Amount) / s.Count(),
+                        Total = s.Sum(x => x.Amount)
+                    })
+                    .Join(Clients,
+                    txn => txn.CodeClient,
+                    cl => cl.Code,
+                    (txn, cl) => new { DepTxn = txn, DepCl = cl })
+                    .Where(DepCl => DepCl.DepCl.Code == DepCl.DepTxn.CodeClient)
+                    .Select(s => new
+                    {
+                        Code = s.DepCl.Code,
+                        Name = s.DepCl.Name,
+                        Average = s.DepTxn.Average,
+                        Sum = s.DepTxn.Total
+                    }).ToList();
+
+                Console.Clear();
+                Console.WriteLine("LISTA DE CLIENTES CON {0}\n", type == TransactionType.Deposit ? "DEPÓSITOS" : "RETIROS");
+                Console.WriteLine($"{"CÓDIGO",-6}   {"NOMBRE",-30}  {"PROMEDIO",-8} {"TOTAL"}");
+                Console.WriteLine("----------------------------------------------------------------------");
+
+                foreach(var item in clientsWithDeposit)
+                {
+                    Console.WriteLine($"{item.Code,-6}  {item.Name,-30} {Math.Round(item.Average, 2),-8}  ${item.Sum}");
+                }
+
                 Console.WriteLine("\nFin de registro.");
                 Tool.continueWithAnyKey();
             }
@@ -474,8 +511,14 @@ Resumen operación
                         case 4:
                             core.updateAndDeleteClient(false);
                             break;
+                        case 5:
+                            core.printClientsWithTransactions(TransactionType.Deposit);
+                            break;
+                        case 6:
+                            core.printClientsWithTransactions(TransactionType.Withdrawal);
+                            break;
                         case 7:
-                            core.PrintAllClients();
+                            core.printAllClients();
                             break;
                         case 8:
                             endProgram = true;
